@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Managers;
+namespace App\Lib\Managers;
 
-use App\Database\DatabaseConnexion;
-use App\Database\Dsn;
-use App\Entities\AbstractEntity;
+use App\Lib\Database\DatabaseConnexion;
+use App\Lib\Database\Dsn;
+use App\Lib\Entities\AbstractEntity;
 
 abstract class AbstractManager
 {

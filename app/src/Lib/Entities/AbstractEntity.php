@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Entities;
+namespace App\Lib\Entities;
 
 abstract class AbstractEntity {
     abstract protected function getId();

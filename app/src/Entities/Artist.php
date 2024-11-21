@@ -2,6 +2,8 @@
 
 namespace App\Entities;
 
+use App\Lib\Entities\AbstractEntity;
+
 class Artist extends AbstractEntity {
     public int $id;
     public string $name;

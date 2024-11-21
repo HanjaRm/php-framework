@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Database;
+namespace App\Lib\Database;
 
 class Dsn {
     private string $host;
@@ -56,7 +56,7 @@ class Dsn {
     }
 
     private function getConfig(): array {
-        $file = file_get_contents(__DIR__ . '/../../config/database.json');
+        $file = file_get_contents(__DIR__ . '/../../../config/database.json');
         return json_decode($file, true);
     }
 
