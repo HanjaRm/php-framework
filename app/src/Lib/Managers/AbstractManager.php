@@ -4,11 +4,25 @@ namespace App\Lib\Managers;
 
 use App\Lib\Database\DatabaseConnexion;
 use App\Lib\Database\Dsn;
-use App\Lib\Entities\AbstractEntity;
 
 abstract class AbstractManager
 {
     protected DatabaseConnexion $db;
+    protected string $queryString;
+    protected string $tableAlias;
+    protected array $params = [];
+    protected \PDOStatement $query;
+
+    const CONDITIONS = [
+        'eq' => '=',
+        'neq' => '!=',
+        'lt' => '<',
+        'lte' => '<=',
+        'gt' => '>',
+        'gte' => '>=',
+        'like' => 'LIKE',
+        'in' => 'IN'
+    ];
 
     public function __construct()
     {
@@ -40,13 +54,80 @@ abstract class AbstractManager
         return implode(', ', $values);
     }
 
-    private function getWheres(array $criteria): string {
-        $wheres = [];
-        foreach ($criteria as $key => $value) {
-            $wheres[] = $key . ' = :' . $key;
+    public function queryBuilder(): self {
+        $this->queryString = "SELECT";
+        return $this;
+    }
+
+    public function select(...$fields): self {
+        if(count($fields) === 0) {
+            $this->queryString .= ' *';
+            return $this;
         }
 
-        return implode(' AND ', $wheres);
+        $this->queryString .= ' ' . implode(', ', $fields);
+        return $this;
+    }
+
+    public function from(string $tableAlias): self {
+        $table = $this->getTable();
+        $this->queryString .= " FROM $table";
+
+        return $this->as($tableAlias);
+    }
+
+    public function as(string $tableAlias): self {
+        $this->queryString .= " AS $tableAlias";
+        $this->tableAlias = $tableAlias;
+        return $this;
+    }
+
+    public function andWhere(string $field, string $condition, ?string $table = null): self {
+        $this->queryString .= " AND  ";
+        return $this->where($field, $condition, $table);
+    }
+
+    public function orWhere(string $field, string $condition, ?string $table = null): self {
+        $this->queryString .= " OR  ";
+        return $this->where($field, $condition, $table);
+    }
+
+    public function where(string $field, string $condition, ?string $table = null): self {
+        $this->queryString .= " WHERE ";
+        if($table !== null) {
+            $this->queryString .= "$table.";
+        }else {
+            $this->queryString .= "$this->tableAlias.";
+        }
+
+        $this->queryString .= "$field $condition :$field";
+        return $this;
+    }
+
+    public function addParam(string $key, $value): self {
+        $this->params[$key] = $value;
+        return $this;
+    }
+
+    public function setParams(array $params): self {
+        $this->params = $params;
+        return $this;
+    }
+
+    public function executeQuery(): self {
+        $this->query = $this->db->getConnexion()->prepare($this->queryString);
+        $this->query->execute($this->params);
+        return $this;
+    }
+
+    public function getOneResult() {
+        $this->query->setFetchMode(\PDO::FETCH_CLASS, 'App\Entities\\' . ucfirst($this->getTable()));
+        return $this->query->fetch();
+    }
+
+    public function getAllResults(): array {
+        $this->query->setFetchMode(\PDO::FETCH_CLASS, 'App\Entities\\' . ucfirst($this->getTable()));
+        return $this->query->fetchAll();
     }
 
     public function find(string | int $id) {
@@ -54,24 +135,49 @@ abstract class AbstractManager
     }
 
     public function findAll() {
-        $query = $this->db->getConnexion()->prepare("SELECT * FROM {$this->getTable()}");
-        $query->execute();
-        $query->setFetchMode(\PDO::FETCH_CLASS, 'App\Entities\\' . ucfirst($this->getTable()));
-        return $query->fetchAll();
+        $this->queryBuilder()
+            ->select()
+            ->from(substr($this->getTable(), 0, 1))
+            ->executeQuery()
+            ->getAllResults();
     }
 
     public function findBy(array $criteria) {
-        $query = $this->db->getConnexion()->prepare("SELECT * FROM {$this->getTable()} WHERE {$this->getWheres($criteria)}");
-        $query->execute($criteria);
-        $query->setFetchMode(\PDO::FETCH_CLASS, 'App\Entities\\' . ucfirst($this->getTable()));
-        return $query->fetchAll();
+        $this->queryBuilder()
+            ->select()
+            ->from(substr($this->getTable(), 0, 1))
+            ;
+
+        foreach($criteria as $key => $value) {
+            if(strpos($this->queryString, 'WHERE') === false) {
+                $this->where($key, self::CONDITIONS['eq']);
+            } else {
+                $this->andWhere($key, self::CONDITIONS['eq']);
+            }
+            $this->addParam($key, $value);
+        }
+
+        return $this->executeQuery()
+            ->getAllResults();
     }
 
     public function findOneBy(array $criteria) {
-        $query = $this->db->getConnexion()->prepare("SELECT * FROM {$this->getTable()} WHERE {$this->getWheres($criteria)}");
-        $query->execute($criteria);
-        $query->setFetchMode(\PDO::FETCH_CLASS, 'App\Entities\\' . ucfirst($this->getTable()));
-        $data = $query->fetch();
+        $this->queryBuilder()
+            ->select()
+            ->from(substr($this->getTable(), 0, 1))
+            ;
+
+        foreach($criteria as $key => $value) {
+            if(strpos($this->queryString, 'WHERE') === false) {
+                $this->where($key, self::CONDITIONS['eq']);
+            } else {
+                $this->andWhere($key, self::CONDITIONS['eq']);
+            }
+            $this->addParam($key, $value);
+        }
+
+        $data = $this->executeQuery()
+            ->getAllResults();
 
         if($data === false) {
             return null;
@@ -81,18 +187,16 @@ abstract class AbstractManager
     }
 
     public function save(AbstractEntity $entity): string {
-        $query = $this->db->getConnexion()->prepare("INSERT INTO {$this->getTable()} ({$this->getFields($entity)}) VALUES ({$this->getValues($entity)})");
-        $query->execute($entity->toArray());
+        $this->executeQuery("INSERT INTO {$this->getTable()} ({$this->getFields($entity)}) VALUES ({$this->getValues($entity)})", $entity->toArray());
+
         return $this->db->getConnexion()->lastInsertId();
     }
 
     public function update(AbstractEntity $entity) {
-        $query = $this->db->getConnexion()->prepare("UPDATE {$this->getTable()} SET {$this->getUpdateFields($entity)} WHERE id = :id");
-        $query->execute(array_merge($entity, ['id' => $entity->getId()]));
+        $this->executeQuery("UPDATE {$this->getTable()} SET {$this->getUpdateFields($entity)} WHERE id = :id", array_merge($entity->toArray(), ['id' => $entity->getId()]));
     }
 
     public function delete(AbstractEntity $entity) {
-        $query = $this->db->getConnexion()->prepare("DELETE FROM {$this->getTable()} WHERE id = :id");
-        $query->execute(['id' => $entity->getId()]);
+        $this->executeQuery("DELETE FROM {$this->getTable()} WHERE id = :id", ['id' => $entity->getId()]);;
     }
 }
