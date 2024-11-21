@@ -3,8 +3,9 @@
 namespace App\Controllers;
 
 use App\Entities\Artist;
-use App\Http\Request;
-use App\Http\Response;
+use App\Lib\Controllers\AbstractController;
+use App\Lib\Http\Request;
+use App\Lib\Http\Response;
 use App\Managers\ArtistManager;
 
 class PostArtistController extends AbstractController {

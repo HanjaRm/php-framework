@@ -2,9 +2,10 @@
 
 namespace App\Commands;
 
-use App\Database\DatabaseConnexion;
-use App\Entities\AbstractEntity;
-use App\Managers\AbstractManager;
+use App\Lib\Commands\AbstractCommand;
+use App\Lib\Database\DatabaseConnexion;
+use App\Lib\Entities\AbstractEntity;
+use App\Lib\Managers\AbstractManager;
 
 class CreateSchema extends AbstractCommand {
     

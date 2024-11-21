@@ -2,7 +2,8 @@
 
 namespace App\Commands;
 
-use App\Database\Dsn;
+use App\Lib\Commands\AbstractCommand;
+use App\Lib\Database\Dsn;
 
 class CreateDatabase extends AbstractCommand {
     

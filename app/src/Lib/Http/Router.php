@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Http;
+namespace App\Lib\Http;
 
-use App\Http\Request;
+use App\Lib\Http\Request;
 
 class Router
 {
@@ -66,7 +66,7 @@ class Router
     }
 
     private static function getConfig(): array {
-        $config = json_decode(file_get_contents(__DIR__ . '/../../config/routes.json'));
+        $config = json_decode(file_get_contents(__DIR__ . '/../../../config/routes.json'));
         return $config;
     }
 
