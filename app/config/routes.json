@@ -1,22 +1,27 @@
 [
     {
-        "path": "/test",
-        "methods": ["GET"],
-        "controller": "TestController"
+        "uri": "/contact",
+        "method": "POST",
+        "controller": "ContactController::storeContact"
     },
     {
-        "path": "/artists/:id",
-        "methods": ["GET"],
-        "controller": "GetArtistController"
+        "uri": "/contact",
+        "method": "GET",
+        "controller": "ContactController::getAllContacts"
     },
     {
-        "path": "/artists",
-        "methods": ["GET"],
-        "controller": "GetArtistsController"
+        "uri": "/contact/{filename}",
+        "method": "GET",
+        "controller": "ContactController::getContact"
     },
     {
-        "path": "/artists",
-        "methods": ["POST"],
-        "controller": "PostArtistController"
+        "uri": "/contact/{filename}",
+        "method": "PATCH",
+        "controller": "ContactController::updateContact"
+    },
+    {
+        "uri": "/contact/{filename}",
+        "method": "DELETE",
+        "controller": "ContactController::deleteContact"
     }
 ]

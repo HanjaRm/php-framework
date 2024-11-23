@@ -3,74 +3,48 @@
 namespace App\Lib\Http;
 
 use App\Lib\Http\Request;
+use App\Lib\Http\Response;
 
 class Router
 {
-    public function route(Request $request): ?Response {
-        $route = self::getRouteFromRequest($request);
+    private $request;
+    private $response;
+    private $routes;
 
-        if(empty($route)) {
-            return new Response('Not found', 404, ['Content-Type' => 'text/plain']);
-        }
-
-        if($this->checkMethod($request, $route) === false) {
-            return new Response('Method not allowed', 405, ['Content-Type' => 'text/plain']);
-        }
-
-        $controller = 'App\\Controllers\\' . $route->controller;
-        $controller = new $controller();
-        return $controller->process($request);
+    public function __construct(Request $request, Response $response)
+    {
+        $this->request = $request;
+        $this->response = $response;
+        $this->routes = json_decode(file_get_contents(__DIR__ . '/../../../config/routes.json'), true);
     }
 
-    private function getRouteFromRequest(Request $request): ?object{
-        $routes = self::getConfig();
-        foreach ($routes as $route) {
-            if (self::urlMatches($request, $route)) {
-                return $route;
-            }
-        }
-        return null;
-    }
+    public function run()
+    {
+        $uri = $_SERVER['REQUEST_URI'];
+        $method = $_SERVER['REQUEST_METHOD'];
 
-    private static function urlMatches(Request $request, object $route): bool {
-        $requestUriParts = self::getUrlParts($request->getPath());
-        $routePathParts = self::getUrlParts($route->path);
+        foreach ($this->routes as $route) {
+            // Transform the route pattern to a regular expression
+            $routePattern = preg_replace('/\{[a-zA-Z0-9_]+\}/', '([^/]+)', $route['uri']);
+            $routePattern = '#^' . $routePattern . '$#';
 
-        if(self::checkUrlPartsNumberMatches($requestUriParts, $routePathParts) === false) {
-            return false;
-        }
+            // Check if the URI and method match
+            if (preg_match($routePattern, $uri, $matches) && $route['method'] === $method) {
+                array_shift($matches); // Remove the full match from the matches array
 
-        foreach($routePathParts as $key => $part) {
-            if(self::isUrlPartSlug($part) === false) {
-                if($part !== $requestUriParts[$key]) {
-                    return false;
-                }
-            }else{
-                $request->addSlug(substr($part, 1), $requestUriParts[$key]);
+                [$controller, $action] = explode('::', $route['controller']);
+                $controller = "App\\Controllers\\$controller";
+
+                // Instantiate the controller and call the action with parameters
+                $instance = new $controller($this->request, $this->response);
+                return call_user_func_array([$instance, $action], $matches);
             }
         }
 
-        return true;
+        // Default response if no route matches
+        $this->response->jsonResponse(['error' => 'Route not found'], 404);
     }
 
-    private static function getUrlParts(string $url): array {
-        return explode('/', trim($url, '/'));
-    }
 
-    private static function checkUrlPartsNumberMatches(array $requestUriParts, array $routePathParts): bool {
-        return count($requestUriParts) === count($routePathParts);
-    }
 
-    private static function isUrlPartSlug(string $part): bool {
-        return strpos($part, ':') === 0;
-    }
-
-    private static function getConfig(): array {
-        $config = json_decode(file_get_contents(__DIR__ . '/../../../config/routes.json'));
-        return $config;
-    }
-
-    private static function checkMethod(Request $request, object $route): bool {
-        return in_array($request->getMethod(), $route->methods);
-    }
 }
